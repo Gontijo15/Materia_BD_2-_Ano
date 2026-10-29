@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Turmas</title>
+    <style>
+      body { font-family: Arial; margin: 30px;}
+      table { width: 100%; border-collapse: collapse; }
+      th, td { padding: 8px; border: 1px solid #ccc; text-align: left; }
+      th { background-color: #eee; }
+      .filtro {margin-bottom: 20px; }
+
+      /* Estilo do modal */
+      .modal {
+        display: none;
+        position: fixed;
+        z-index: 999;
+        left: 0; top: 0;
+        width: 100%; height: 100%;
+        background-color: rgba(0,0,0,0.4);
+        justify-content: center; align-items: center;
+      }
+      .modal-content {
+        background-color: #fff;
+        padding: 20px;
+        border-radius: 10px;
+        width: 300px;
+        box-shadow: 0 2px 10px rgba(0,0,0,0.3);
+        text-align: left;
+        animation: fadeIn 0.3s ease;
+      }
+      .modal-content h2 { margin-top: 0; }
+      .close {
+        float: right;
+        font-size: 22px;
+        cursor: pointer;
+        color: #999;
+      }
+      .close:hover { color: black; }
+      @keyframes fadeIn {
+        from { opacity: 0; transform: scale(0.9); }
+        to { opacity: 1; transform: scale(1); }
+      }
+    </style>
+</head>
+<body>
+    <h1>Lista de turmas</h1>
+
+    <form id="formTurma">
+      <label for="sigla">Sigla</label>
+      <input type="text" id="sigla" required>
+      <label for="curso">Curso</label>
+      <select name="curso" id="curso">
+        <option value="Integrado">Integrado</option>
+        <option value="Regular">Regular</option>
+      </select>
+      <label for="serie">Série</label>
+      <input type="text" id="serie" required>
+      <button type="submit">Cadastrar</button>
+    </form>
+
+    <div class="filtro">
+      <label for="pesquisa">Pesquisar por turma:</label>
+      <input type="text" id="pesquisa" placeholder="Digite uma turma">
+    </div>
+
+    <table id="tabela">
+        <thead>
+        <tr>
+          <th>Sigla</th>
+          <th>Curso</th>
+          <th>Série</th>
+          <th>Opções</th>
+        </tr>
+        </thead>
+        <tbody></tbody>
+    </table>
+
+    <div id="modal" class="modal">
+      <div class="modal-content">
+        <span class="close" id="fecharModal">&times;</span>
+        <h2>Editar Turma</h2>
+        <form id="formEditar">
+          <input type="hidden" id="editId" />
+          <label for="editSigla">Sigla:</label>
+          <input type="text" id="editSigla" required />
+          <br>
+          <label for="editCurso">Curso:</label>
+          <select name="editCurso" id="editCurso">
+            <option value="Integrado">Integrado</option>
+            <option value="Regular">Regular</option>
+          </select>
+          <br>
+          <label for="editSerie">Série:</label>
+          <input type="text" id="editSerie" required />
+          <br>
+          <button type="submit">Salvar</button>
+        </form>
+      </div>
+    </div>
+
+  <script>
+    async function carregarTurmas(filtro = "") {
+      const res = await fetch(`/api/turmas?sigla=${encodeURIComponent(filtro)}`);
+      const turmas = await res.json();
+      const tbody = document.querySelector("#tabela tbody");
+      tbody.innerHTML = "";
+
+      turmas.forEach(t => {
+        const row = document.createElement("tr");
+        row.innerHTML = `
+        <td>${t.sigla}</td>
+        <td>${t.curso}</td>
+        <td>${t.serie}</td>
+        <td>
+          <button onclick="abrirModal(${t.id_turma}, '${t.sigla}', '${t.curso}', '${t.serie}')">Editar</button>
+          <button onclick="excluirTurma(${t.id_turma})">Excluir</button>
+        </td>
+        `;
+        tbody.appendChild(row);
+      });
+    }
+
+    document.querySelector("#pesquisa").addEventListener("input", (e) => {
+      carregarTurmas(e.target.value);
+    });
+
+    carregarTurmas();
+
+    document.querySelector("#formTurma").addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const sigla = document.querySelector("#sigla").value;
+      const curso = document.querySelector("#curso").value;
+      const serie = document.querySelector("#serie").value;
+
+      await fetch("/api/turma", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ sigla, curso, serie})
+      });
+
+      e.target.reset();
+      carregarTurmas();
+    });
+
+    async function excluirTurma(id) {
+        if(!confirm("Tem certeza que deseja excluir esta turma?")) return;
+        await fetch(`/api/turmas/${id}`, {method: "DELETE"});
+        carregarTurmas();
+    }
+
+    const modal = document.getElementById("modal");
+    const fecharModal = document.getElementById("fecharModal");
+
+    function abrirModal(id, sigla, curso, serie){
+      document.getElementById("editId").value = id;
+      document.getElementById("editSigla").value = sigla;
+      document.getElementById("editCurso").value = curso;
+      document.getElementById("editSerie").value = serie;
+      modal.style.display = "flex";
+    }
+
+    fecharModal.onclick = () => modal.style.display = "none";
+
+    document.querySelector("#formEditar").addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const id = document.querySelector("#editId").value;
+      const sigla = document.querySelector("#editSigla").value;
+      const curso = document.querySelector("#editCurso").value;
+      const serie = document.querySelector("#editSerie").value;
+
+      dadosJson = {
+        sigla: sigla,
+        curso: curso,
+        serie: serie
+      }
+
+      await fetch(`/api/turmas/${id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(dadosJson),
+      });
+
+      e.target.reset();
+      modal.style.display = "none";
+      carregarTurmas();
+    });
+  </script>
+</body>
+</html>
